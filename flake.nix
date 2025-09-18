@@ -118,8 +118,43 @@
           in
           with nixpkgs;
           {
-            devShells = import ./shell.nix {
-              inherit nixpkgs;
+            devShells = rec {
+              default = full;
+
+              common = mkShell {
+                packages = [
+                  curl
+                  dig
+                  findutils
+                  jq
+                  which
+                ]
+                ++ lib.optionals (stdenv.hostPlatform.isLinux) [
+                  iputils
+                ];
+              };
+
+              ci = mkShell {
+                packages = lib.lists.unique (
+                  common.nativeBuildInputs
+                  ++ [
+                    dnsmasq
+                    nix-serve-ng
+                  ]
+                );
+              };
+
+              full = mkShell {
+                packages = lib.lists.unique (
+                  common.nativeBuildInputs
+                  ++ [
+                    nix-tree
+                  ]
+                  ++ (with packagesMatrix."${system}"."${system}"; [
+                    lightway__edge
+                  ])
+                );
+              };
             };
 
             formatter = nixfmt-rfc-style;
