@@ -26,17 +26,12 @@ let
     };
 
     src = {
-      rev = "8edf29434447faa64a0b4aaa90e56b44722ed0c2";
-      hash = "sha256-ao+yaIoDnVyfzPid76JGw+Mzikq6sZUpqbF3pD6Cl/8=";
+      rev = "e7221655fae3a64e375935a55b77e5f93cee432a";
+      hash = "sha256-CGnUrpxbgbcAcyT+4zlLVZmQT9dliN6q3TAUzkc1uQ0=";
     };
   };
 
-  cargoLock = {
-    lockFile = passthru.src + /Cargo.lock;
-    outputHashes = {
-      "wolfssl-3.0.0" = "sha256-h3ORb5FmIeYyTf23+QhVr7vl+UwRkhAhFqbHiJ+ML9k=";
-    };
-  };
+  cargoHash = "sha256-RFlac10XFJXT3Giayy31kZ3Nn1Q+YsPt/zCdkSV0Atk=";
 
   rustPlatform =
     let
@@ -50,14 +45,15 @@ let
   self =
     let
       # Aliases
-      inherit (lib) optionals;
+      inherit (lib) optionals optionalString;
+      inherit (lib.cli) toGNUCommandLine;
 
       # Build variables
-      buildFeatures =
-        [ ]
-        ++ optionals stdenv.hostPlatform.isLinux [
-          "io-uring"
-        ];
+      env = {
+        NIX_CFLAGS_COMPILE =
+          with stdenv.hostPlatform;
+          optionalString (isAarch && isLinux) "-march=${gcc.arch}+crypto";
+      };
 
       nativeBuildInputs = [
         autoconf
@@ -66,29 +62,38 @@ let
         rustPlatform.bindgenHook
       ];
 
+      cargoDepsName = passthru.self.pname;
+      cargoBuildFlags = toGNUCommandLine { } {
+        package = [
+          "lightway-client"
+          "lightway-server"
+        ];
+
+        features = optionals stdenv.hostPlatform.isLinux [
+          "io-uring"
+        ];
+      };
+
       doCheck = true;
-      checkType = "debug";
-      checkFlags = [
-        # These tests need permission to create tun interface
-        "--skip=routing_table::tests"
-      ];
+      checkType = "release";
     in
     rustPlatform.buildRustPackage {
       pname = "lightway";
       inherit (passthru) version src;
 
       inherit
-        buildFeatures
+        cargoHash
+        env
         nativeBuildInputs
-        cargoLock
+        cargoDepsName
+        cargoBuildFlags
         doCheck
         checkType
-        checkFlags
         ;
 
-      meta = {
-        pkgConfigModules = [ ];
-        platforms = lib.platforms.all;
+      meta = with lib; {
+        platforms = platforms.darwin ++ platforms.linux;
+        mainProgram = "lightway-client";
       };
     };
 in
