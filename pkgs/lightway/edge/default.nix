@@ -35,7 +35,7 @@ let
 
   rustPlatform =
     let
-      toolchain = rust-bin.stable."1.88.0".minimal;
+      toolchain = rust-bin.stable."1.89.0".minimal;
     in
     makeRustPlatform {
       cargo = toolchain;
